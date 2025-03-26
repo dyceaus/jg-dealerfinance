@@ -15,13 +15,13 @@ jobs:
       - name: Extract version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      # 2. Checkout code (include all files)
+      # 2. Checkout code
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 3. Update fxmanifest version automatically
+      # 3. Update fxmanifest version
       - name: Update version
         run: |
           sed -i "s/^version .*/version '${{ env.VERSION }}'/" fxmanifest.lua
@@ -31,29 +31,38 @@ jobs:
           git commit -m "Auto-update to ${{ env.VERSION }}" || echo "No version change needed"
           git push || echo "No changes to push"
 
-      # 4. Build UI (if UI folder exists)
+      # 4. Build UI (only if package.json exists)
+      - name: Check for UI
+        id: check_ui
+        run: |
+          if [ -f "ui/package.json" ]; then
+            echo "UI_EXISTS=true" >> $GITHUB_OUTPUT
+          else
+            echo "UI_EXISTS=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build UI
-        if: exists('ui/package.json')
+        if: steps.check_ui.outputs.UI_EXISTS == 'true'
         run: |
           cd ui
           npm ci
           npm run build
           cd ..
 
-      # 5. Create ZIP with EVERYTHING (except .git and node_modules)
-      - name: Package release
+      # 5. Package all files
+      - name: Create release bundle
         run: |
-          # Create clean folder
           mkdir -p jg-dealerfinance-${{ env.VERSION }}
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='node_modules/' \
+            --exclude='*.zip' \
+            ./ jg-dealerfinance-${{ env.VERSION }}/
           
-          # Copy ALL FILES except ignored ones
-          rsync -a --exclude='.git/' --exclude='.github/' --exclude='node_modules/' \
-                --exclude='*.zip' ./ jg-dealerfinance-${{ env.VERSION }}/
-          
-          # Create zip
           zip -r jg-dealerfinance-${{ env.VERSION }}.zip jg-dealerfinance-${{ env.VERSION }}
 
-      # 6. Attach to release
+      # 6. Upload release asset
       - name: Upload release
         uses: softprops/action-gh-release@v1
         with:
