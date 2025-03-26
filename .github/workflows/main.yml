@@ -16,6 +16,8 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for version comparison later
 
       - name: Update fxmanifest version
         run: sed -i "s/^version .*/version '${{ env.VERSION_TAG }}'/" fxmanifest.lua
@@ -24,6 +26,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18.x
+          cache: 'npm'
+          cache-dependency-path: 'ui/package-lock.json'
 
       - name: Build UI
         run: |
@@ -32,19 +36,24 @@ jobs:
           npm run build
           cd ..
 
-      - name: Create complete bundle
+      - name: Create structured bundle
         run: |
-          # Copy ALL FILES except what's in .gitignore
+          # Create bundle folder structure
           mkdir -p ./temp/jg-dealerfinance
-          cp -r ./* ./temp/jg-dealerfinance/ || true  # Ignore minor copy errors
           
-          # Overwrite with fresh UI build
-          rm -rf ./temp/jg-dealerfinance/ui/dist
+          # Copy core files
+          cp -r {fxmanifest.lua,README.md} ./temp/jg-dealerfinance/
+          
+          # Copy required directories (like original workflow)
+          cp -r {server,framework,client} ./temp/jg-dealerfinance/
+          
+          # Copy built UI
+          mkdir -p ./temp/jg-dealerfinance/ui
           cp -r ui/dist ./temp/jg-dealerfinance/ui/
           
-          # Create zip (excluding hidden files like .git)
+          # Create zip (exclude hidden files)
           cd ./temp
-          zip -r ../jg-dealerfinance-${{ env.VERSION_TAG }}.zip ./jg-dealerfinance -x "*/.*"
+          zip -r ../jg-dealerfinance-${{ env.VERSION_TAG }}.zip ./jg-dealerfinance
           cd ..
 
       - name: Upload release asset
