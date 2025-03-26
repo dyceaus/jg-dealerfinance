@@ -1,18 +1,18 @@
-name: jg-dealerfinance Auto-Release
+name: jg-dealerfinance Release
 
 on:
   release:
     types: [published]
 
 jobs:
-  package:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
       # 1. Get version from tag
-      - name: Extract version
+      - name: Get version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       # 2. Checkout code
@@ -23,13 +23,11 @@ jobs:
       - name: Update version
         run: |
           sed -i "s/^version .*/version '${{ env.VERSION }}'/" fxmanifest.lua
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
           git add fxmanifest.lua
-          git commit -m "Auto-update to ${{ env.VERSION }}" || echo "No version change needed"
-          git push || echo "No changes to push"
+          git commit -m "Update version to ${{ env.VERSION }}" || true
+          git push || true
 
-      # 4. Build UI (only if ui/ exists)
+      # 4. Build UI if UI folder exists
       - name: Build UI
         run: |
           if [ -d "ui" ]; then
@@ -39,18 +37,17 @@ jobs:
             cd ..
           fi
 
-      # 5. Create ZIP - SIMPLE AND CLEAN
-      - name: Create release zip
+      # 5. Create ZIP - NO EXTRA FOLDERS
+      - name: Create ZIP
         run: |
-          zip -r jg-dealerfinance-${{ env.VERSION }}.zip \
-            -x ".git/*" \
-            -x ".github/*" \
-            -x "node_modules/*" \
-            -x "*.zip" \
-            *
+          # List of files to exclude
+          EXCLUDE="*.zip .git/* .github/* node_modules/*"
+          
+          # Create the damn zip
+          zip -r jg-dealerfinance-${{ env.VERSION }}.zip * -x "$EXCLUDE"
 
       # 6. Upload release
-      - name: Upload release
+      - name: Upload Release
         uses: softprops/action-gh-release@v1
         with:
           files: jg-dealerfinance-${{ env.VERSION }}.zip
