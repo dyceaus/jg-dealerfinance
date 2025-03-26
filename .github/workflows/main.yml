@@ -1,0 +1,56 @@
+name: jg-dealerfinance Release Automation
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Get tag
+        run: echo "VERSION_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        id: get_tag
+
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Update version number in fxmanifest.lua
+        run: sed -i "s/^version .*/version '${{ env.VERSION_TAG }}'/" fxmanifest.lua
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: 'npm'
+          cache-dependency-path: 'ui/package-lock.json'
+
+      - name: Install dependencies & Build
+        run: |
+          cd ui
+          npm ci
+          npm run build
+          cd ..
+
+      - name: Create resource bundle
+        run: |
+          mkdir -p ./temp/jg-dealerfinance/ui
+          cp -r {fxmanifest.lua,README.md} ./temp/jg-dealerfinance/
+          cp -r ui/dist ./temp/jg-dealerfinance/ui/
+          cd ./temp && zip -r ../jg-dealerfinance-${{ env.VERSION_TAG }}.zip ./jg-dealerfinance
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./jg-dealerfinance-${{ env.VERSION_TAG }}.zip
+          asset_name: jg-dealerfinance-${{ env.VERSION_TAG }}.zip
+          asset_content_type: application/zip
