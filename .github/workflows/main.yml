@@ -11,39 +11,41 @@ jobs:
       contents: write
 
     steps:
-      - name: Get tag
+      - name: Get tag version
         run: echo "VERSION_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-        id: get_tag
 
-      - name: Checkout source code
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }}
 
-      - name: Update version number in fxmanifest.lua
+      - name: Update fxmanifest version
         run: sed -i "s/^version .*/version '${{ env.VERSION_TAG }}'/" fxmanifest.lua
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18.x
-          cache: 'npm'
-          cache-dependency-path: 'ui/package-lock.json'
 
-      - name: Install dependencies & Build
+      - name: Build UI
         run: |
           cd ui
           npm ci
           npm run build
           cd ..
 
-      - name: Create resource bundle
+      - name: Create complete bundle
         run: |
-          mkdir -p ./temp/jg-dealerfinance/ui
-          cp -r {fxmanifest.lua,README.md} ./temp/jg-dealerfinance/
+          # Copy ALL FILES except what's in .gitignore
+          mkdir -p ./temp/jg-dealerfinance
+          cp -r ./* ./temp/jg-dealerfinance/ || true  # Ignore minor copy errors
+          
+          # Overwrite with fresh UI build
+          rm -rf ./temp/jg-dealerfinance/ui/dist
           cp -r ui/dist ./temp/jg-dealerfinance/ui/
-          cd ./temp && zip -r ../jg-dealerfinance-${{ env.VERSION_TAG }}.zip ./jg-dealerfinance
+          
+          # Create zip (excluding hidden files like .git)
+          cd ./temp
+          zip -r ../jg-dealerfinance-${{ env.VERSION_TAG }}.zip ./jg-dealerfinance -x "*/.*"
+          cd ..
 
       - name: Upload release asset
         uses: actions/upload-release-asset@v1
