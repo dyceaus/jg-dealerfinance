@@ -6,9 +6,9 @@ title "JG Finance"
 description "App to manage your financed vehicles."
 author "Wyknx & Lindholm"
 
-client_script "client.lua"
-server_scripts { "@oxmysql/lib/MySQL.lua", "server.lua",  }
-shared_scripts { '@ox_lib/init.lua', "framework.lua", }
+client_scripts {"client.lua"}
+server_scripts { "@oxmysql/lib/MySQL.lua", "server.lua"}
+shared_scripts { '@ox_lib/init.lua', "framework.lua"}
 
 files {
     "ui/dist/**/*",

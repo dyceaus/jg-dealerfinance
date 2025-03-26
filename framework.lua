@@ -13,69 +13,88 @@ else
 end
 
 QBCore, ESX = nil, nil
-
 Framework = {
-    Client = {},
-    Server = {},
+    Server = {}
 }
 
-if Config.Framework == "QBCore" then
-    QBCore = exports['qb-core']:GetCoreObject()
+if (Config.Framework == "auto" and GetResourceState("qbx_core") == "started") or Config.Framework == "Qbox" then
+    Config.Framework = "Qbox"
 
     Framework.VehiclesTable = "player_vehicles"
     Framework.PlayerIdentifier = "citizenid"
-elseif Config.Framework == "ESX" then
-    ESX = exports['es_extended']:getSharedObject()
+  elseif (Config.Framework == "auto" and GetResourceState("qb-core") == "started") or Config.Framework == "QBCore" then
+    QBCore = exports['qb-core']:GetCoreObject()
+    Config.Framework = "QBCore"
+
+    Framework.VehiclesTable = "player_vehicles"
+    Framework.PlayerIdentifier = "citizenid"
+  elseif (Config.Framework == "auto" and GetResourceState("es_extended") == "started") or Config.Framework == "ESX" then
+    ESX = exports["es_extended"]:getSharedObject()
+    Config.Framework = "ESX"
 
     Framework.VehiclesTable = "owned_vehicles"
     Framework.PlayerIdentifier = "owner"
-end
+  else
+    error("You need to set the Config.Framework to either \"QBCore\" or \"ESX\" or \"Qbox\"!")
+  end
 
-function Framework.GetPlayerIdentifier(source)
+  function Framework.Server.GetPlayer(src)
     if Config.Framework == "QBCore" then
-        return QBCore.Functions.GetPlayer(source).PlayerData.citizenid
+      return QBCore.Functions.GetPlayer(src)
+    elseif Config.Framework == "Qbox" then
+      return exports.qbx_core:GetPlayer(src)
     elseif Config.Framework == "ESX" then
-        return ESX.GetPlayerFromId(source).identifier
+      return ESX.GetPlayerFromId(src)
     end
-end
+  end
 
-function Framework.GetPlayerData(source)
-    if Config.Framework == "QBCore" then
-        return QBCore.Functions.GetPlayer(source)
+function Framework.Server.GetPlayerIdentifier(src)
+    local player = Framework.Server.GetPlayer(src)
+    if not player then return false end
+
+    if Config.Framework == "QBCore" or Config.Framework == "Qbox" then
+      return player.PlayerData.citizenid
     elseif Config.Framework == "ESX" then
-        return ESX.GetPlayerFromId(source)
+      return player.getIdentifier()
     end
-end
+  end
 
-function Framework.CheckAmount(amount, source)
-    local Player = Framework.GetPlayerData(source)
+  function Framework.Server.GetPlayerBalance(src, type)
+    local player = Framework.Server.GetPlayer(src)
+    if not player then return 0 end
 
-    if Config.Framework == "ESX" then
-        if Player.getAccount('bank').money < amount then
-            return false
+    if type == "custom" then
+      -- Add your own custom balance system here
+    elseif Config.Framework == "QBCore" or Config.Framework == "Qbox" then
+      return player.PlayerData.money[type]
+    elseif Config.Framework == "ESX" then
+      if type == "cash" then type = "money" end
+
+      for i, acc in pairs(player.getAccounts()) do
+        if acc.name == type then
+          return acc.money
         end
-    elseif Config.Framework == "QBCore" then
-        if Player.Functions.GetMoney('bank') < amount then
-            return false
-        end
-    else
-        print("Unknown framework specified in Config.Framework")
-        return false
-    end
-    return true
-end
+      end
 
-function Framework.RemoveMoney(amount, source)
-    local Player = Framework.GetPlayerData(source)
-
-    if Config.Framework == "ESX" then
-        Player.removeAccountMoney('bank', amount)
-        return true
-    elseif Config.Framework == "QBCore" then
-        Player.Functions.RemoveMoney('bank', amount)
-        return true
-    else
-        print("Unknown framework specified in Config.Framework")
-        return false
+      return 0
     end
+  end
+
+  function Framework.Server.PlayerRemoveMoney(src, amount, account)
+    local player = Framework.Server.GetPlayer(src)
+    account = account or "bank"
+
+    if account == "custom" then
+      -- Add your own custom balance system here
+    elseif Config.Framework == "QBCore" or Config.Framework == "Qbox" then
+      player.Functions.RemoveMoney(account, Round(amount, 0))
+    elseif Config.Framework == "ESX" then
+      if account == "cash" then account = "money" end
+      player.removeAccountMoney(account, Round(amount, 0))
+    end
+  end
+
+function Round(num, numDecimalPlaces)
+    local mult = 10^(numDecimalPlaces or 0)
+    return math.floor(num * mult + 0.5) / mult
 end
