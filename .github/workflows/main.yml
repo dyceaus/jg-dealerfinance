@@ -31,7 +31,7 @@ jobs:
           git commit -m "Auto-update to ${{ env.VERSION }}" || echo "No version change needed"
           git push || echo "No changes to push"
 
-      # 4. Build UI (only if package.json exists)
+      # 4. Check for UI
       - name: Check for UI
         id: check_ui
         run: |
@@ -41,6 +41,7 @@ jobs:
             echo "UI_EXISTS=false" >> $GITHUB_OUTPUT
           fi
 
+      # 5. Build UI (if exists)
       - name: Build UI
         if: steps.check_ui.outputs.UI_EXISTS == 'true'
         run: |
@@ -49,20 +50,29 @@ jobs:
           npm run build
           cd ..
 
-      # 5. Package all files
-      - name: Create release bundle
+      # 6. Create clean package
+      - name: Package release
         run: |
-          mkdir -p jg-dealerfinance-${{ env.VERSION }}
+          # Create temporary working folder
+          mkdir -p package/jg-dealerfinance
+          
+          # Copy all files except excluded ones
           rsync -a \
             --exclude='.git/' \
             --exclude='.github/' \
             --exclude='node_modules/' \
             --exclude='*.zip' \
-            ./ jg-dealerfinance-${{ env.VERSION }}/
+            ./ package/jg-dealerfinance/
           
-          zip -r jg-dealerfinance-${{ env.VERSION }}.zip jg-dealerfinance-${{ env.VERSION }}
+          # Create zip from inside package folder
+          cd package
+          zip -r ../jg-dealerfinance-${{ env.VERSION }}.zip ./jg-dealerfinance
+          cd ..
+          
+          # Clean up
+          rm -rf package
 
-      # 6. Upload release asset
+      # 7. Upload release
       - name: Upload release
         uses: softprops/action-gh-release@v1
         with:
