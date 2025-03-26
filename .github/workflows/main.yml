@@ -31,48 +31,27 @@ jobs:
           git commit -m "Auto-update to ${{ env.VERSION }}" || echo "No version change needed"
           git push || echo "No changes to push"
 
-      # 4. Check for UI
-      - name: Check for UI
-        id: check_ui
-        run: |
-          if [ -f "ui/package.json" ]; then
-            echo "UI_EXISTS=true" >> $GITHUB_OUTPUT
-          else
-            echo "UI_EXISTS=false" >> $GITHUB_OUTPUT
-          fi
-
-      # 5. Build UI (if exists)
+      # 4. Build UI (if exists)
       - name: Build UI
-        if: steps.check_ui.outputs.UI_EXISTS == 'true'
+        if: exists('ui/package.json')
         run: |
           cd ui
           npm ci
           npm run build
           cd ..
 
-      # 6. Create clean package
-      - name: Package release
+      # 5. Create ZIP with PERFECT structure
+      - name: Create release zip
         run: |
-          # Create temporary working folder
-          mkdir -p package/jg-dealerfinance
-          
-          # Copy all files except excluded ones
-          rsync -a \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='node_modules/' \
-            --exclude='*.zip' \
-            ./ package/jg-dealerfinance/
-          
-          # Create zip from inside package folder
-          cd package
-          zip -r ../jg-dealerfinance-${{ env.VERSION }}.zip ./jg-dealerfinance
-          cd ..
-          
-          # Clean up
-          rm -rf package
+          # Create zip directly with correct internal folder structure
+          zip -r jg-dealerfinance-${{ env.VERSION }}.zip \
+            -x "*.git*" \
+            -x "*.github*" \
+            -x "*node_modules*" \
+            -x "*.zip" \
+            * .[^.]*
 
-      # 7. Upload release
+      # 6. Upload release
       - name: Upload release
         uses: softprops/action-gh-release@v1
         with:
