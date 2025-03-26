@@ -18,8 +18,6 @@ jobs:
       # 2. Checkout code
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       # 3. Update fxmanifest version
       - name: Update version
@@ -31,25 +29,25 @@ jobs:
           git commit -m "Auto-update to ${{ env.VERSION }}" || echo "No version change needed"
           git push || echo "No changes to push"
 
-      # 4. Build UI (if exists)
+      # 4. Build UI (only if ui/ exists)
       - name: Build UI
-        if: exists('ui/package.json')
         run: |
-          cd ui
-          npm ci
-          npm run build
-          cd ..
+          if [ -d "ui" ]; then
+            cd ui
+            npm ci
+            npm run build
+            cd ..
+          fi
 
-      # 5. Create ZIP with PERFECT structure
+      # 5. Create ZIP - SIMPLE AND CLEAN
       - name: Create release zip
         run: |
-          # Create zip directly with correct internal folder structure
           zip -r jg-dealerfinance-${{ env.VERSION }}.zip \
-            -x "*.git*" \
-            -x "*.github*" \
-            -x "*node_modules*" \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "node_modules/*" \
             -x "*.zip" \
-            * .[^.]*
+            *
 
       # 6. Upload release
       - name: Upload release
