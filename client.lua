@@ -4,6 +4,8 @@ while GetResourceState("lb-phone") ~= "started" do
     Wait(500)
 end
 
+Wait(1000) -- Apparently a fix needed for the AddCustomApp export
+
 local function addApp()
     local added, errorMessage = exports["lb-phone"]:AddCustomApp({
         identifier = identifier, -- unique app identifier
